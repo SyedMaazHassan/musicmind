@@ -8,7 +8,7 @@ from django.urls import resolve
 class ApiResponse:
     def __init__(self):
         self.output_object = {
-            'status': 404,
+            'response': 404,
             'success': {
                 'data': None,
                 'message': None
@@ -18,12 +18,12 @@ class ApiResponse:
         }
 
     def postSuccess(self, data, message):
-        self.output_object['status'] = 200
+        self.output_object['response'] = 200
         self.output_object['success']['data'] = data
         self.output_object['success']['message'] = message
 
     def postError(self, error_object):
-        self.output_object['status'] = 404
+        self.output_object['response'] = 404
         self.output_object['errors'] = error_object
 
 
