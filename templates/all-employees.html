@@ -1,0 +1,324 @@
+{% extends 'inc/main_base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div id="mySidenav" class="sidenav">
+    <div class="p-4">
+        <div class="row">
+            <div class="col-sm-7 d-flex align-items-center">
+                <h4 class="my-0">Add new employee</h4>
+            </div>
+
+
+
+            <div class="col-sm-5 d-flex align-items-center justify-content-end">
+                <i 
+                    onclick="closeNav()"
+                    class="material-icons mk-pointer myIco ml-2 text-secondary" 
+                    title="Add new translation">
+                    close
+                </i>
+            </div>
+        </div>
+
+        <div class="row mt-2">
+            <div class="col-sm-12 pt-3">
+
+
+                {% for message in messages %}
+                    <div class="alert {% if message.level == 20 %}alert-success{% else %}alert-danger{% endif %} mb-3 alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                {% endfor %}
+
+                <form class="forms-sample" action="{% url 'save-employee' %}" method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}                
+                    {% include 'inc/employee-form.html' %}
+                    <button type="submit" class="btn btn-primary mr-2">Save employee</button>
+                </form>
+
+            </div>
+
+
+        </div>
+       
+
+    </div>
+
+</div>
+
+<div class="modal fade" id="id-card-modal" tabindex="-1" role="dialog" aria-labelledby="myModal-label" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="myModalTitle">ID card</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!--Modal content-->
+                <div>
+                    {% include company.card_template.full_path %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary text-white" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="download_btn">Download to print</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12 grid-margin stretch-card">
+    <div class="card">
+      <div class="card-body">
+        <div class="row">
+            <div class="col-sm-6 d-flex align-items-center">
+                <h3 class="mb-3">All employees</h3>
+            </div>
+
+            <div class="col-sm-6 d-flex justify-content-end align-items-center">
+                <div class="mx-3 pt-2">
+                    <div class="form-group" style="height: 100%;">
+                        <select id="main-filter" class="custom-select py-2" style="border-radius: 15px; height: 40px;" id="exampleSelect">
+                            <option value="all" {% if request.GET.view == 'all' %}selected{% endif %}>All employees</option>
+                            <option value="active" {% if request.GET.view == 'active' %}selected{% endif %}>Active employees</option>
+                            <option value="in-active" {% if request.GET.view == 'in-active' %}selected{% endif %}>In-active employees</option>
+                        </select>
+                    </div>
+                </div>
+
+
+                <button type="button" 
+                    id="add-new-employee-btn"
+                    onclick="openNav()"
+                    class="btn d-flex align-items-center btn-outline-primary mb-3">
+                    <i class="material-icons mr-2">add</i>
+                    Add new employee
+                </button>
+
+                
+            </div>
+
+            
+        </div>
+
+
+        <div class="row">
+          <div class="col-12">
+
+            {% for message in messages %}
+                {% if message.level == 40 %}
+                    <div class="alert alert-danger" role="alert">
+                        {{ message }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        
+
+            <div class="table-responsive" id="myIdCard1">
+
+                <table class="table table-striped display expandable-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Full name</th>
+                        <th>Email</th>
+                        <th>Designation</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+
+
+
+               
+
+                      {% for employee in all_employees %}
+
+                        <tr>
+                            <td class="py-1">
+                            <img src="media/{{ employee.profile_picture }}" alt="image" />
+                            </td>
+                            <td>
+                                <a href="{% url 'employee' employee.id %}">
+                                    {{ employee.full_name }}
+                                </a>
+                                <br>
+                                
+                            </td>
+                            <td>{{ employee.email }}</td>
+                            <td>{{ employee.designation }}</td>
+                            <td>{{ employee.phone }}</td>
+                            <td>
+                                {% comment %} {{ employee.member_since }} {% endcomment %}
+                                {% if employee.is_active %}
+                                    <span class="badge py-1 mt-2 badge-success">Active</span>
+                                {% else %}
+                                    <span class="badge py-1 mt-2 badge-danger">In-active</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <label class="switch">
+                                    <input type="checkbox" 
+                                    class="active-switch" data-id="{{ employee.id }}" 
+                                    {% if employee.is_active %}checked{% endif %}>
+                                    <span class="slider round"></span>
+                                </label>                              
+                            </td>
+                            <td>
+                                <i 
+                                    class="material-icons mk-pointer"
+                                    title="Open id card"
+                                    onclick="open_id_card('{{ employee.getJson }}', '{{ forloop.counter }}')">visibility</i>
+                            </td>
+                        </tr>
+
+                      {% endfor %}
+
+                      {% if not all_employees %}
+                        <tr>
+                            <td colspan="8">
+                                <div class="text-center px-3 py-0">
+                                    <div class="alert alert-warning" role="alert">
+                                        No {% if request.GET.view %}{% if request.GET.view != 'all' %}{{ request.GET.view }}{% endif %}{% endif %} employee exists right now, click on "Add new employee".
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                      {% endif %}
+           
+                    </tbody>
+                </table>
+           
+            </div>
+            
+            {% if length > 1 %}
+                <div class="d-flex justify-content-end">
+                    <ul class="pagination mt-4">
+                        {% if previous %}
+                            <li class="page-item"><a class="page-link" href="{% url 'all-employees' %}?page={{ previous }}{% if request.GET.view %}&view={{request.GET.view}}{% endif %}{% if request.GET.query %}&query={{request.GET.query}}{% endif %}">Previous</a></li>
+                        {% endif %}
+                        
+                        {% for num in num_pages %}
+                            <li class="page-item {% if current_page == num %}active{% endif %}">
+                                <a class="page-link" href="{% url 'all-employees' %}?page={{ num }}{% if request.GET.view %}&view={{request.GET.view}}{% endif %}{% if request.GET.query %}&query={{request.GET.query}}{% endif %}">{{ num }}</a>
+                            </li>
+                        {% endfor %}
+
+                        {% if next %}
+                        <li class="page-item"><a class="page-link" href="{% url 'all-employees' %}?page={{ next }}{% if request.GET.view %}&view={{request.GET.view}}{% endif %}{% if request.GET.query %}&query={{request.GET.query}}{% endif %}">Next</a></li>
+                        {% endif %}
+                    </ul>
+
+                
+                </div>
+            {% endif %}
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="canvas">
+
+    </div>
+
+    
+  </div>
+</div>
+
+
+
+<script src="https://raw.githack.com/eKoopmans/html2pdf/master/dist/html2pdf.bundle.js"></script>
+<script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+<script src="{% static 'assets/js/employee.js' %}"></script>
+<script src="{% static 'assets/js/picture-upload.js' %}"></script>
+
+<script>
+    var selected_employee = null;
+   
+    let new_parameter = '{{ request.GET.add_employee }}';
+    let search = '{{ request.GET.query }}';
+    let view = '{{ request.GET.view }}';
+    let page = '{{ request.GET.page }}';
+
+
+    $(".active-switch").on("click", function () {
+        let id = $(this).attr("data-id");
+        let is_active = this.checked;
+        if (id) {
+            $.ajax({
+                url: "{% url 'update-employee-status' %}",
+                type: "GET", 
+                data: `id=${id}&is_active=${is_active}`,
+                success: (response)=>{
+                    if (response.status) {
+                        window.location.reload();
+                    }
+                }
+            })
+        }
+    });
+
+
+    $("#search-form-btn").on("click", function () {
+        let query = $("#navbar-search-input").val();
+        if (query) {
+            if (new_parameter || view || page) {
+                window.location.href = window.location.href + `&query=${query}`;
+            }else{
+                window.location.href = "{% url 'all-employees' %}" + `?query=${query}`;                    
+            }
+        }else{
+            window.location.href = "{% url 'all-employees' %}";                   
+        }
+    });
+
+    $("#main-filter").on("change", function () {
+        let value = this.value;
+        if (!(view) && (new_parameter || search || page)) {
+            window.location.href = window.location.href + `&view=${value}`;
+        }else{
+            window.location.href = "{% url 'all-employees' %}?view="+value;
+        }
+    });
+
+
+    if (new_parameter == 'true') {
+        setTimeout(() => {
+            $("#add-new-employee-btn").click();        
+        }, 500);
+    }else{
+        // Check browser support
+        if (typeof(Storage) !== "undefined") {
+            let status = localStorage.getItem("add_employee");
+            // Store
+            if (status == "true") {
+                $("#add-new-employee-btn").click();
+            }
+        }
+    }
+
+    function openDeletedPage(bool){
+        if (bool) {
+            window.location.href = "all-employees/?deleted=true";            
+        }else{
+            window.location.href = "all-employees/";
+        }
+     
+    }
+
+</script>
+
+
+{% endblock content %}

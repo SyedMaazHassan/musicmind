@@ -1,0 +1,205 @@
+<!--
+=========================================================
+* Paper Dashboard 2 - v2.0.1
+=========================================================
+
+* Product Page: https://www.creative-tim.com/product/paper-dashboard-2
+* Copyright 2020 Creative Tim (https://www.creative-tim.com)
+
+Coded by www.creative-tim.com
+
+ =========================================================
+
+* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+-->
+
+
+{% extends 'inc/main_base.html' %}
+{% load static %}
+
+{% block content %}
+
+{% if employee.is_active %}
+
+<div class="row mt-4 px-4">
+  <div class="col-sm-3">
+
+    <div class="card mt-0">
+      <div class="card-header d-flex justify-content-center bg-primary text-white" style="border-top-left-radius: 20px;border-top-right-radius: 20px;">Profile</div>
+      
+      <div class="mt-4">
+        <div class="text-center">
+          <img style="width: 100px; height: 100px;border: 4px solid #fff;" src="media/{{ employee.profile_picture }}"
+            class="profile-picture-icon" alt="...">
+
+
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12 pb-4">
+          <div class="text-center text-white d-flex flex-column justify-content-center align-items-center">
+            <h3 class="my-2  text-dark"><b>{{ employee.full_name }}</b></h3>
+            <div class="d-flex align-items-center justify-content-center">
+              
+            </div>
+          </div>
+          <hr class="mx-5">
+          <div class="d-flex justify-content-center align-items-center text-white mb-3 text-dark">
+            <i class="material-icons" style="font-size: 19px;">work</i>
+            <h5 class="mb-0 ml-2">{{ employee.designation }}</h5>
+          </div>
+        
+        </div>
+      </div>
+    </div>
+    <div class="card text-dark" style="border-radius: 0px 0px 10x 20px;">
+      
+    </div>
+  </div>
+
+  <div class="col-sm-4">
+   
+
+
+      <div class="card mt-0">
+        <div class="card-header d-flex justify-content-center bg-primary text-white" style="border-top-left-radius: 20px;border-top-right-radius: 20px;">More Info</div>
+        <div class="row mt-4 px-4">
+          <div class="col-sm-12 pb-3">
+            <div class="card border p-3">
+              <div class="">
+                <div class="d-flex align-items-center mb-3 text-primary">
+                  <i class="material-icons" style="font-size: 19px;">workspace_premium</i>
+                  <h6 class="my-0 ml-2">Specialized in</h6>
+                </div>
+                <h5 class="mb-0 ml-2">{{ employee.specialized_in | safe }}</h5>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="col-sm-12 pb-3">
+            <div class="card border p-3">
+              <div class="">
+                <div class="d-flex align-items-center mb-3 text-primary">
+                  <i class="material-icons" style="font-size: 19px;">engineering</i>
+                  <h6 class="my-0 ml-2">Projects</h6>
+                </div>
+                <h5 class="mb-0 ml-2">{{ employee.projects | safe }}</h5>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-sm-12 pb-3">
+            <div class="card border p-3">
+              <div class="">
+                <div class="d-flex align-items-center mb-3 text-primary">
+                  <i class="material-icons" style="font-size: 19px;">event</i>
+                  <h6 class="my-0 ml-2">Department</h6>
+                </div>
+                <h5 class="mb-0 ml-2">{{ employee.department }}</h5>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="col-sm-12 pb-3">
+            <div class="card border p-3">
+              <div class="">
+                <div class="d-flex align-items-center mb-3 text-primary">
+                  <i class="material-icons" style="font-size: 19px;">history</i>
+                  <h6 class="my-0 ml-2">Joined</h6>
+                </div>
+                <h5 class="mb-0 ml-2">{{ employee.member_since.date }}</h5>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+
+  </div>
+
+  <div class="col-sm-5">
+    <div class="">
+      <!-- <h4 class="mb-0 mt-3 ml-3">ID card</h4> -->
+      <div class="bg-white border-10">
+        {% include employee.company.card_template.full_path %}
+        <!-- <div class="text-center d-flex pb-0 justify-content-center">
+          <button type="button" id="download_btn" class="btn d-flex align-items-center btn-outline-primary mb-3">
+            <i class="material-icons mr-2">download</i>
+            Download to print
+          </button>
+        </div> -->
+      </div>
+
+    </div>
+
+    <div class="card mt-4">
+      <!--tips: add .text-center,.text-right to the .card to change card text alignment-->
+
+      <div class="card-header d-flex justify-content-center bg-primary text-white" style="border-top-left-radius: 20px;border-top-right-radius: 20px;">Contact</div>
+      <div class="row mt-4 px-4">
+
+        <div class="col-sm-12 pb-2">
+          <div class="d-flex align-items-center mb-3">
+            <i class="material-icons" style="font-size: 19px;">email</i>
+            <h4 class="mb-0 ml-2">{{ employee.email }}</h4>
+          </div>
+        </div>
+
+        <div class="col-sm-12 pb-2">
+          <div class="d-flex align-items-center mb-3">
+            <i class="material-icons" style="font-size: 19px;">phone_iphone</i>
+            <h5 class="mb-0 ml-2">+{{ employee.phone }}</h5>
+          </div>
+        </div>
+
+        <div class="col-sm-12 pb-2">
+          <div class="d-flex align-items-center mb-3">
+            <i class="material-icons" style="font-size: 19px;">wifi_calling_3</i>
+            <h5 class="mb-0 ml-2">{{ employee.telephone }}</h5>
+          </div>
+        </div>
+
+        <div class="col-sm-12 pb-2">
+          <div class="d-flex align-items-center mb-3">
+            <i class="material-icons" style="font-size: 19px;">business</i>
+            <h5 class="mb-0 ml-2">{{ employee.company.name }}</h5>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- <hr class="text-white bg-white" style="opacity: 0;"> -->
+
+    </div>
+  </div>
+</div>
+
+<script src="https://raw.githack.com/eKoopmans/html2pdf/master/dist/html2pdf.bundle.js"></script>
+<script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+<script src="{% static 'assets/js/employee.js' %}"></script>
+<script src="{% static 'assets/js/picture-upload.js' %}"></script>
+
+<script>
+  $("#employee_profile_picture_input").prop("required", false);
+  let data = '{{ employee.getJson | safe }}';
+  let index = "{{ index }}"
+  open_id_card(data, index, false);
+  $("#department-input").val(selected_employee.department);
+
+
+
+</script>
+
+{% else %}
+
+<div class="alert alert-danger text-center" role="alert">
+  Employee doesn't exists!
+</div>
+
+{% endif %}
+
+
+{% endblock content %}

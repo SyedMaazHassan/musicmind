@@ -1,0 +1,55 @@
+{% load static %}
+<div  id="myIdCard" class="p-3">
+    <div class="radius-10 border">
+        <div class="card-background-color-2 p-4 text-white" style="border-radius: 10px 10px 0px 0px;">
+            <h4 class="mb-2">
+                <b>
+                    <span id="company-name">Company name</span>
+                </b>
+            </h4>
+            <p class="mb-0"><span id="company-tagline">Company tagline</span></p>
+        </div>
+
+        <div class="p-3">
+            <div class="row">
+                <div class="col-sm-3 col-3 text-center">
+                    <img src="{% static 'img/person.jpeg' %}" id="employee-picture" class="id-card-person" alt="">
+                    
+                    <p class="mt-2 mb-0" id="employee-show-id">E001</p>
+                </div>
+
+
+                <div class="col-sm-6 col-6">
+                    <h6 class="mb-1 mt-2" id="employee-name">User name</h6>
+                    <p class="small pb-0 mb-0"  id="employee-email">email@gmail.com</p>
+                        <!-- <br> -->
+                        <!-- <b>Birthday:</b> June 19, 1999</p> -->
+                    <div class="designation-card-2" id="employee-designation">Sales Manager</div>
+
+                
+                </div>
+
+                <div class="col-sm-3 col-3 d-flex align-items-center justify-content-center">
+                    <div class="spinner-border text-primary qr-loading" id="qr-loading" role="status">
+                        <span class="sr-only">Loading...</span>
+                    </div>
+
+                    <div class="qr-sample" style="display: none;">
+                        <img src="{% static 'img/qr.png' %}" style="width: 100%;" alt="">
+                    </div>
+
+                    <div id="qr-container" style="display: none;">
+                        
+
+                    </div>
+                
+                </div>
+            </div>
+
+            <!-- <div class="mt-0 text-right">
+                <p class="mb-0 pb-0 small"><b>Member since:</b> May 06, 2021</p>
+            </div> -->
+            
+        </div>
+    </div>
+</div>
