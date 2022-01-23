@@ -144,10 +144,17 @@ class UnlockedLevel(models.Model):
     is_completed = models.BooleanField(default = False)
     user = models.ForeignKey(SystemUser, on_delete = models.CASCADE)
 
+    def __str__(self):
+        return f'{self.user} => {self.level} => Completed: {self.is_completed}'
+
 class UnlockedMission(models.Model):
     mission = models.ForeignKey(Mission, on_delete = models.CASCADE)
     is_completed = models.BooleanField(default = False)
     user = models.ForeignKey(SystemUser, on_delete = models.CASCADE)
+
+    def __str__(self):
+        return f'{self.user} => {self.mission} => Completed: {self.is_completed}'
+
 
 class API_Key(models.Model):
     key = models.UUIDField(unique = True, default=uuid.uuid4, editable = False)

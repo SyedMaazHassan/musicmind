@@ -85,7 +85,28 @@ class LevelApi(APIView, ApiResponse):
         try:
             single_level = Level.objects.get(level_id = level_id) 
             serializer = LevelDetailSerializer(single_level, many = False)
-            self.postSuccess({'level': serializer.data}, "Level fetched successfully")
+
+            # Get logged in user
+            user_obj = SystemUser.objects.get(uid = request.headers['uid'])
+            # Convert data into python dictionary to process
+            proper_data = json.loads(json.dumps(serializer.data))
+            # Get all unlocked missions
+            unlocked_missions = UnlockedMission.objects.filter(user = user_obj)
+
+            all_missions = proper_data['missions']
+            for mission_index in range(len(all_missions)):
+                mission = all_missions[mission_index]
+                
+                mission['is_locked'] = True
+                mission['is_completed'] = False
+                query_test = unlocked_missions.filter(mission_id = mission['mission_id'])
+                if query_test.exists():
+                    mission['is_locked'] = False
+                    if query_test[0].is_completed:
+                        mission['is_completed'] = True
+
+            self.postSuccess({'level': proper_data}, "Level fetched successfully")
+            
         except Exception as e:
             self.postError({ 'level': str(e) })
         return Response(self.output_object)
@@ -114,8 +135,7 @@ class CategoryApi(APIView, ApiResponse):
         for course_index in range(len(all_courses)):
             course = all_courses[course_index]
             all_levels = course['levels']
-            # print("=========================")
-            # print("Course =>", course['name'])
+
             for level_index in range(len(all_levels)):
                 level = all_levels[level_index]
                 level['is_locked'] = True
@@ -125,10 +145,7 @@ class CategoryApi(APIView, ApiResponse):
                     level['is_locked'] = False
                     if query_test[0].is_completed:
                         level['is_completed'] = True
-                # course['levels'][level_index] = level            
-            # all_courses[course_index] = course
-        # proper_data['courses'] = all_courses
-        # print("=========================")
+
         return {'category': proper_data}
 
     def get(self, request, cat_id=None):
