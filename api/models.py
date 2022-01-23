@@ -98,6 +98,47 @@ class Video(models.Model):
         ordering = ('video_id',)
 
 
+class Currency(models.Model):
+    code = models.CharField(max_length = 6)
+    name = models.CharField(max_length = 20)
+    symbol = models.CharField(max_length = 10)
+
+    def __str__(self):
+        return f'{self.code}'
+
+class Subscription(models.Model):
+    subs_id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length = 30)
+    subtitle = models.CharField(max_length = 30)
+    price = models.FloatField()
+    currency = models.ForeignKey(Currency, on_delete = models.CASCADE)
+    sales_tax = models.IntegerField(default = 9)
+    freq = models.CharField(
+            max_length = 20, 
+            choices=[('month', 'monthly'), ('year', 'yearly'), ('week', 'weekly')])
+    ft_days = models.IntegerField()
+    is_best = models.BooleanField(default = False)
+
+    def sales_tax_price(self):
+        return round((self.price / 100) * self.sales_tax, 2)
+
+    def total_price(self):
+        return round(self.price + self.sales_tax_price(), 2)
+
+    def __str__(self):
+        return f'{self.price} {self.currency} / {self.freq} - \
+                 (Free trial: {self.ft_days} days)  -  (Best: {self.is_best}) \
+                 (Sales tax: {self.sales_tax}%)'
+
+    def save(self, *args, **kwargs):
+        if self.is_best:
+            Subscription.objects.all().update(is_best = False)
+            self.is_best = True
+        super(Subscription, self).save(*args, **kwargs)
+
+    class Meta:
+        ordering = ('subs_id',)
+
 class UnlockedLevel(models.Model):
     level = models.ForeignKey(Level, on_delete = models.CASCADE)
     is_done = models.BooleanField(default = False)

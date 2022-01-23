@@ -28,6 +28,9 @@ urlpatterns = [
     path('mission/', MissionApi.as_view()),    
     path('mission/<mission_id>', MissionApi.as_view()),
 
+    path('subscriptions', SubscriptionApi.as_view()),    
+    path('subscription/', SubscriptionApi.as_view()),
+    path('subscription/<subs_id>', SubscriptionApi.as_view()),
 
     # path('auth/checktoken', AuthenticationApi.as_view()),
     # path('auth/<action>', AuthenticationApi.as_view()),

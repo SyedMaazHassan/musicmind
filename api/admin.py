@@ -10,5 +10,7 @@ admin.site.register(Course)
 admin.site.register(Level)
 admin.site.register(Mission)
 admin.site.register(Video)
+admin.site.register(Subscription)
+admin.site.register(Currency)
 admin.site.register(API_Key)
 

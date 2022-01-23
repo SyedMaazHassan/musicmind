@@ -109,6 +109,30 @@ class CategoryShortSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+###########################################################
+###   FOR Subscription Details API    START           #####
+###########################################################
+
+class CurrencySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Currency
+        fields = "__all__"
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    currency = CurrencySerializer(many = False, read_only = True)    
+    sales_tax_price = serializers.FloatField()
+    total_price = serializers.FloatField()
+
+    class Meta:
+        model = Subscription
+        fields = "__all__"
+
+
+###########################################################
+###   FOR Subscription Details API    END             #####
+###########################################################
+
+
 class UserSerializer(serializers.ModelSerializer):
     def validate(self, data):
         errors = {}

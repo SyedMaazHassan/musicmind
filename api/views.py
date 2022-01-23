@@ -20,52 +20,37 @@ import copy
 
 
 def index(request):
-
     return render(request, "test.html")
 
 
+class SubscriptionApi(APIView, ApiResponse):
+    authentication_classes = [RequestAuthentication,]
 
-class AuthenticationApi(APIView):
-    def get(self, request):
-        print("xxxxxxxxxxxxxxxxxxxxxxxxx")
-        print(request.data)
-        print("xxxxxxxxxxxxxxxxxxxxxxxxx")
+    def __init__(self):
+        ApiResponse.__init__(self)
 
-        JWT_authenticator = JWTAuthentication()
-        response = JWT_authenticator.authenticate(request)
-        if response is not None:
-            # unpacking
-            user , token = response
-            print("this is decoded token claims", token.payload)
-        else:
-            print("no token is provided in the header or the header is missing")
+    def get_multiple_subscriptions(self):
+        all_subs = Subscription.objects.all()
+        serializer = SubscriptionSerializer(all_subs, many=True)
+        return {'subscriptions': serializer.data}
 
-        return Response(response)
+    def get_single_subscription(self, subs_id):
+        single_sub = get_object_or_404(Subscription, subs_id = subs_id)
+        serializer = SubscriptionSerializer(single_sub, many=False)
+        return {'subscription': serializer.data}
 
-    def post(self, request, action):
-        output = {}
-        if action == "login":
-            print(request.data)
-            username = request.data["username"]
-            password = request.data["password"]
-
-            user = auth.authenticate(username=username, password=password)
-
-            if user is not None:
-                # Log the user in, if credentials are correct
-                refresh = RefreshToken.for_user(user)
-                output["payload"] = {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token)
-                }
-                output["status"] = True
-                output["message"] = "Login has been authenticated!" 
+    def get(self, request, subs_id=None):
+        try:
+            if subs_id:
+                serialized_data = self.get_single_subscription(subs_id)
             else:
-                output["status"] = False
-                output["message"] = "Credentials are incorrect!"  
+                serialized_data = self.get_multiple_subscriptions()
+            self.postSuccess(serialized_data, "Subscriptions fetched successfully")
+        except Exception as e:
+            self.postError({ 'subscription': str(e) })
+        return Response(self.output_object)
 
-        return Response(output)
-
+    
 
 
 class MissionApi(APIView, ApiResponse):
