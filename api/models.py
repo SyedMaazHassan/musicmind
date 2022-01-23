@@ -141,12 +141,12 @@ class Subscription(models.Model):
 
 class UnlockedLevel(models.Model):
     level = models.ForeignKey(Level, on_delete = models.CASCADE)
-    is_done = models.BooleanField(default = False)
+    is_completed = models.BooleanField(default = False)
     user = models.ForeignKey(SystemUser, on_delete = models.CASCADE)
 
 class UnlockedMission(models.Model):
     mission = models.ForeignKey(Mission, on_delete = models.CASCADE)
-    is_done = models.BooleanField(default = False)
+    is_completed = models.BooleanField(default = False)
     user = models.ForeignKey(SystemUser, on_delete = models.CASCADE)
 
 class API_Key(models.Model):

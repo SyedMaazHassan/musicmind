@@ -103,15 +103,39 @@ class CategoryApi(APIView, ApiResponse):
         return {'categories': serializer.data}
 
 
-    def get_single_category(self, cat_id):
+    def get_single_category(self, cat_id, user_obj):
         single_cat = get_object_or_404(Category, cat_id = cat_id)
         serializer = CategoryDetailedSerializer(single_cat, many=False)
-        return {'category': serializer.data}
+        proper_data = json.loads(json.dumps(serializer.data))
+        # print(proper_data)
+        unlocked_levels = UnlockedLevel.objects.filter(user = user_obj)
+
+        all_courses = proper_data['courses']
+        for course_index in range(len(all_courses)):
+            course = all_courses[course_index]
+            all_levels = course['levels']
+            # print("=========================")
+            # print("Course =>", course['name'])
+            for level_index in range(len(all_levels)):
+                level = all_levels[level_index]
+                level['is_locked'] = True
+                level['is_completed'] = False
+                query_test = unlocked_levels.filter(level_id = level['level_id'])
+                if query_test.exists():
+                    level['is_locked'] = False
+                    if query_test[0].is_completed:
+                        level['is_completed'] = True
+                # course['levels'][level_index] = level            
+            # all_courses[course_index] = course
+        # proper_data['courses'] = all_courses
+        # print("=========================")
+        return {'category': proper_data}
 
     def get(self, request, cat_id=None):
         try:
             if cat_id:
-                serialized_data = self.get_single_category(cat_id)
+                user_object = SystemUser.objects.get(uid = request.headers['uid'])
+                serialized_data = self.get_single_category(cat_id, user_object)
             else:
                 serialized_data = self.get_multiple_categories()
             self.postSuccess(serialized_data, "Category(s) fetched successfully")
