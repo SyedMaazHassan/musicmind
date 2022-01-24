@@ -3,6 +3,7 @@ from . import views
 from api.views import *
 from django.conf import settings
 from django.conf.urls.static import static
+
 # from rest_framework_simplejwt.views import (
 #     TokenObtainPairView,
 #     TokenRefreshView,
@@ -11,6 +12,8 @@ from django.conf.urls.static import static
 urlpatterns = [
     # path('', views.index, name="index"),
     # GET API
+    path('', views.index, name="index"),
+
     path('user/', UserApi.as_view()),
     path('user/<uid>', UserApi.as_view()), 
 
@@ -49,5 +52,3 @@ urlpatterns = [
     
 ]
 
-urlpatterns = urlpatterns + \
-    static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

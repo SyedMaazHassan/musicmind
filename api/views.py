@@ -7,7 +7,6 @@ from django.utils import timezone
 from rest_framework.exceptions import AuthenticationFailed
 from django.shortcuts import get_object_or_404
 # Create your views here.
-from application.models import *
 from api.models import *
 from api.authentication import RequestAuthentication, ApiResponse
 from api.support import beautify_errors
@@ -20,7 +19,35 @@ import copy
 
 
 def index(request):
-    return render(request, "test.html")
+    return render(request, "abcc.html")
+    # all_categories = Category.objects.all()
+    
+    # for category in all_categories:
+    #     for i in range(3):
+    #         new_course = Course(
+    #             name = f'Course {i + 1}',
+    #             category = category
+    #         )
+    #         new_course.save()
+
+    #         for j in range(3):
+    #             new_level = Level(
+    #                 name = f'Level {j + 1}',
+    #                 tagline = f"Tagline of level {j + 1}",
+    #                 course = new_course
+    #             )
+    #             new_level.save()
+
+    #             for k in range(3):
+    #                 new_mission = Mission(
+    #                     name = f'Mission {k + 1}',
+    #                     level = new_level
+    #                 )
+    #                 new_mission.save()
+
+                    
+    #     print(category)
+
 
 
 class SubscriptionApi(APIView, ApiResponse):
@@ -333,7 +360,13 @@ class UserApi(APIView, ApiResponse):
     def patch(self, request, uid=None):
         try:
             user_obj = get_object_or_404(SystemUser, uid=uid)
+
+            if user_obj.email != request.data['email']:
+                self.postError({'email': 'To avoid problems with future signin, Email cannot be updated'})
+                return Response(self.output_object)
+
             serializer = UserSerializer(user_obj, data=request.data, partial = True)
+            
             if serializer.is_valid():
                 serializer.save()
                 self.postSuccess({'user': serializer.data}, "User updated successfully")

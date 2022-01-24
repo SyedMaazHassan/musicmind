@@ -80,7 +80,7 @@ class Level(models.Model):
     level_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length = 15)
     tagline = models.CharField(max_length = 70)
-    display_pic = models.ImageField(upload_to = 'levels', default = 'levels/default-display.jpeg')
+    display_pic = models.ImageField(upload_to = 'levels', default = 'levels/default-display.jpg')
     course = models.ForeignKey(Course, related_name='levels', on_delete = models.CASCADE)
     created_at = models.DateTimeField(default = timezone.now)
 
@@ -103,7 +103,7 @@ class Level(models.Model):
 class Mission(models.Model):
     mission_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length = 15)
-    display_pic = models.ImageField(upload_to = 'missions', default = 'missions/default-display.jpeg')
+    display_pic = models.ImageField(upload_to = 'missions', default = 'missions/default-display.jpg')
     level = models.ForeignKey(Level, related_name='missions', on_delete = models.CASCADE)
     created_at = models.DateTimeField(default = timezone.now)
 
