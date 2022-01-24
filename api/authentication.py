@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import exceptions
 import copy
 from django.urls import resolve
+from api.models import *
 
 class ApiResponse:
     def __init__(self):
@@ -16,6 +17,41 @@ class ApiResponse:
             'errors': None,
             'warnings': None
         }
+
+    def unlock_first_level_mission(self, user, course):
+        all_levels = Level.objects.filter(course = course)
+        print("Checking if levels exists in this course")
+        if all_levels.count() > 0:
+            print("yes exists")
+            first_level = all_levels[0]
+            # Adding in UnlockLevel model
+            print("Unlocking first level")
+            unlocked_level_object = UnlockedLevel.objects 
+            if not unlocked_level_object.filter(level = first_level, user = user).exists():
+                unlocked_level_object.create(
+                    level = first_level,
+                    user = user
+                )
+
+                all_missions = Mission.objects.filter(level = first_level)
+                print("Checking if mission exists in this level")
+                if all_missions.count() > 0:
+                    print("yes exists")
+                    first_mission = all_missions[0]
+
+                    # Adding in UnlockMission
+                    print("Unlocking first mission")
+                    unlocked_mission_object = UnlockedMission.objects 
+                    if not unlocked_mission_object.filter(mission = first_mission, user = user).exists():
+                        unlocked_mission_object.create(
+                            mission = first_mission,
+                            user = user
+                        )
+                    print("First mission unlocked")
+                return
+
+            print("Not mission exist")
+        print("Not Level exist")
 
     def postSuccess(self, data, message):
         self.output_object['response'] = 200

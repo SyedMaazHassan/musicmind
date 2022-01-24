@@ -14,7 +14,39 @@ from django.db.models import Q
 import datetime
 from django.core.paginator import Paginator
 from .supporting_func import *
+from api.models import *
 
+def index(request):
+
+    all_categories = Category.objects.all()
+    
+    for category in all_categories:
+        for i in range(3):
+            new_course = Course(
+                name = f'Course {i + 1}',
+                category = category
+            )
+            new_course.save()
+
+            for j in range(3):
+                new_level = Level(
+                    name = f'Level {j + 1}',
+                    tagline = f"Tagline of level {j + 1}",
+                    course = new_course
+                )
+                new_level.save()
+
+                for k in range(3):
+                    new_mission = Mission(
+                        name = f'Mission {k + 1}',
+                        level = new_level
+                    )
+                    new_mission.save()
+
+                    
+        print(category)
+
+    return render(request, "abcc.html")
 
 # View function to update the user status of Activate/De-activate
 @login_required

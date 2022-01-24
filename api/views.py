@@ -59,12 +59,125 @@ class MissionApi(APIView, ApiResponse):
     def __init__(self):
         ApiResponse.__init__(self)
 
+    def unlock_next_cat(self, user_obj, current_category):
+        next_cat = current_category.get_next_cat()
+        if next_cat:
+            print("next category found")
+            print("Unlocking first course...")
+            all_courses = Course.objects.filter(category = next_cat)
+            if all_courses.count() > 0:
+                print("First course exists")
+                print("Unlocking first level and mission")
+                self.unlock_first_level_mission(user_obj, all_courses[0])
+
+    def unlock_next_course(self, user_obj, current_course_obj):
+        next_course = current_course_obj.get_next_course()
+        if next_course:
+            print("Next course found")
+            print("Unlocking first level and mission")
+            self.unlock_first_level_mission(user_obj, next_course)
+        else:
+            print("Next course not found")
+            print("Unlocking next category...")
+            self.unlock_next_cat(user_obj, current_course_obj.category)
+
+    def unlock_next_level(self, user_obj, current_level_obj):
+        next_level = current_level_obj.get_next_level()
+        if next_level:
+            print("Next level found!")
+            query = UnlockedLevel.objects.filter(user = user_obj, level = next_level)
+            if not query.exists():
+                print("Next level unlocked")
+                UnlockedLevel.objects.create(
+                    level = next_level,
+                    user = user_obj
+                )
+
+                all_missions = Mission.objects.filter(level = next_level)
+                if all_missions.count() > 0:
+                    first_mission = all_missions[0]
+                    if not UnlockedMission.objects.filter(user = user_obj, mission = first_mission).exists():
+                        UnlockedMission.objects.create(
+                            mission = first_mission,
+                            user = user_obj
+                        )                    
+        else:
+            print("Next level not Found!")
+            print("Unlocking next course...")
+            self.unlock_next_course(user_obj, current_level_obj.course)
+
+    def unlock_next_mission(self, user_obj, current_mission_obj):
+        next_mission = current_mission_obj.get_next_mission()
+        if next_mission:
+            print("next mission FOUND...")
+            # Check if not already exists
+            query = UnlockedMission.objects.filter(user = user_obj, mission = next_mission)
+            if not query.exists():
+                UnlockedMission.objects.create(
+                    mission = next_mission,
+                    user = user_obj
+                )
+            print("Unlocked next mission")
+        else:
+            print("next mission not FOUND...")
+            # Current mission is the last mission, its mean level is completed
+            # Marking level as completed
+            print("Marking this level as COMPLETED...")
+            unlocked_level = UnlockedLevel.objects.get(user = user_obj, level = current_mission_obj.level)
+            unlocked_level.is_completed = True
+            unlocked_level.save()
+
+            print("Unlocking next level...")
+            self.unlock_next_level(user_obj, current_mission_obj.level)
+
+    def check_access(self, mission, uid):
+        user_obj = SystemUser.objects.get(uid = uid)
+        query = UnlockedMission.objects.filter(
+            user = user_obj,
+            mission = mission
+        )
+
+        if query.exists():
+            # current_level = mission.level
+
+            # Marking mission as COMPLETED
+            unlocked_mission = query[0]
+            unlocked_mission.is_completed = True
+            unlocked_mission.save()
+
+            print("Unlocking next mission...")
+            self.unlock_next_mission(user_obj, unlocked_mission.mission)
+
+            # Check if all missions of current level is completed by this user
+            # all_missions_of_this_level = Mission.objects.filter(level = current_level).count()
+            # all_done_missions_by_user = UnlockedMission.objects.filter(is_completed = True, user = user_obj)
+            # all_done_missions_of_this_level_by_user = 0
+            # for done_mission in all_done_missions_by_user:
+            #     if done_mission.mission.level == current_level:
+            #         all_done_missions_of_this_level_by_user += 1
+
+            # # If all missions completed, then mark this level completed
+            # if all_done_missions_of_this_level_by_user == all_missions_of_this_level:
+            #     unlocked_level = UnlockedLevel.objects.get(user = user_obj, level = current_level)
+            #     unlocked_level.is_completed = True
+            #     unlocked_level.save()
+            #     # Unlocking the next mission
+
+            return True
+
+        return False
+
     def get(self, request, mission_id=None):
         if not mission_id:
             self.postError({'mission_id': 'Mission id is missing'})
             return Response(self.output_object)
         try:
             single_mission = Mission.objects.get(mission_id = mission_id) 
+                        
+            if not self.check_access(single_mission, request.headers['uid']):
+                self.postError({'mission': 'This mission is locked'})
+                return Response(self.output_object)
+            
             serializer = MissionDetailSerializer(single_mission, many = False)
             self.postSuccess({'mission': serializer.data}, "Mission fetched successfully")
         except Exception as e:
@@ -78,6 +191,13 @@ class LevelApi(APIView, ApiResponse):
     def __init__(self):
         ApiResponse.__init__(self)
 
+    def check_access(self, level, user_obj):
+        query = UnlockedLevel.objects.filter(
+            user = user_obj,
+            level = level
+        )
+        return query.exists()
+
     def get(self, request, level_id=None):
         if not level_id:
             self.postError({'level_id': 'Level id is missing'})
@@ -85,9 +205,13 @@ class LevelApi(APIView, ApiResponse):
         try:
             single_level = Level.objects.get(level_id = level_id) 
             serializer = LevelDetailSerializer(single_level, many = False)
-
             # Get logged in user
             user_obj = SystemUser.objects.get(uid = request.headers['uid'])
+
+            if not self.check_access(single_level, user_obj):
+                self.postError({'level': 'This level is locked'})
+                return Response(self.output_object)
+
             # Convert data into python dictionary to process
             proper_data = json.loads(json.dumps(serializer.data))
             # Get all unlocked missions
@@ -106,7 +230,7 @@ class LevelApi(APIView, ApiResponse):
                         mission['is_completed'] = True
 
             self.postSuccess({'level': proper_data}, "Level fetched successfully")
-            
+
         except Exception as e:
             self.postError({ 'level': str(e) })
         return Response(self.output_object)
@@ -166,6 +290,19 @@ class UserApi(APIView, ApiResponse):
     def __init__(self):
         ApiResponse.__init__(self)
 
+
+    def unlock_video(self, uid):
+        user = SystemUser.objects.get(uid = uid)
+        # Get first category
+        all_cats = Category.objects.all()
+        if all_cats.count() > 0:
+            first_cat = all_cats[0]
+            all_courses = Course.objects.filter(category = first_cat)
+            if all_courses.count() > 0:
+                first_course = all_courses[0]
+                self.unlock_first_level_mission(user, first_course)
+             
+
     def post(self, request, uid=None):
         try:
             data = request.data.copy()
@@ -173,6 +310,8 @@ class UserApi(APIView, ApiResponse):
             serializer = UserSerializer(data = data)
             if serializer.is_valid():
                 serializer.save()
+                # Unlocking level and missions for this new user
+                self.unlock_video(uid)
                 self.postSuccess({'user': serializer.data}, "User added successfully")
             else:
                 self.postError(beautify_errors(serializer.errors))                 

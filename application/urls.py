@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
-    # path('', views.dashboard, name="index"),
+    # path('', views.index, name="index"),
     # path('all-employees/', views.all_employees, name="all-employees"),
     # path('employee/<id>', views.single_employee, name="employee"),
     # path('delete-employee/<id>', views.delete_employee, name="delete-employee"),

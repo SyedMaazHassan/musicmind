@@ -1,9 +1,12 @@
 from django.db import models
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User, auth
 import uuid
 from django.core.validators import RegexValidator
+import cv2
+from django.conf import settings
+import os
 # Create your models here.
 
 # python manage.py makemigrations
@@ -17,8 +20,8 @@ class SystemUser(models.Model):
     display_name = models.CharField(max_length = 255, null = True, blank = True)
     first_name = models.CharField(max_length = 255)
     last_name = models.CharField(max_length = 255)
-    email = models.EmailField()
-    phone = models.CharField(max_length = 15, blank = True, null = True)
+    email = models.EmailField(unique = True)
+    phone = models.CharField(max_length = 15, unique = True, blank = True, null = True)
     about = models.TextField(null = True, blank = True)
     created_at = models.DateTimeField(default = timezone.now)
 
@@ -36,6 +39,15 @@ class Category(models.Model):
     icon = models.CharField(max_length = 15)
     created_at = models.DateTimeField(default = timezone.now)
 
+    def get_next_cat(self):
+        all_cats = Category.objects.all()
+        length = all_cats.count()
+        for index in range(length):
+            next_index = index + 1
+            if all_cats[index] == self and (next_index < length):
+                return all_cats[next_index]
+        return None
+
     def __str__(self):
         return f"{self.name}"
 
@@ -48,6 +60,15 @@ class Course(models.Model):
     category = models.ForeignKey(Category, related_name='courses', on_delete = models.CASCADE)
     created_at = models.DateTimeField(default = timezone.now)
 
+    def get_next_course(self):
+        all_courses = Course.objects.filter(category = self.category)
+        length = all_courses.count()
+        for index in range(length):
+            next_index = index + 1
+            if all_courses[index] == self and (next_index < length):
+                return all_courses[next_index]
+        return None  
+
     def __str__(self):
         return f"{self.category} / {self.name}"
 
@@ -59,9 +80,18 @@ class Level(models.Model):
     level_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length = 15)
     tagline = models.CharField(max_length = 70)
-    display_pic = models.ImageField(upload_to = 'levels')
+    display_pic = models.ImageField(upload_to = 'levels', default = 'levels/default-display.jpeg')
     course = models.ForeignKey(Course, related_name='levels', on_delete = models.CASCADE)
     created_at = models.DateTimeField(default = timezone.now)
+
+    def get_next_level(self):
+        all_levels = Level.objects.filter(course = self.course)
+        length = all_levels.count()
+        for index in range(length):
+            next_index = index + 1
+            if all_levels[index] == self and (next_index < length):
+                return all_levels[next_index]
+        return None
 
     def __str__(self):
         return f"{self.course} / {self.name}"
@@ -73,9 +103,39 @@ class Level(models.Model):
 class Mission(models.Model):
     mission_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length = 15)
-    display_pic = models.ImageField(upload_to = 'missions')
+    display_pic = models.ImageField(upload_to = 'missions', default = 'missions/default-display.jpeg')
     level = models.ForeignKey(Level, related_name='missions', on_delete = models.CASCADE)
     created_at = models.DateTimeField(default = timezone.now)
+
+    def get_next_mission(self):
+        all_missions = Mission.objects.filter(level = self.level)
+        length = all_missions.count()
+        for index in range(length):
+            next_index = index + 1
+            if all_missions[index] == self and (next_index < length):
+                return all_missions[next_index]
+        return None
+
+    def get_length(self, filename):
+        data = cv2.VideoCapture(filename)
+  
+        # count the number of frames
+        frames = data.get(cv2.CAP_PROP_FRAME_COUNT)
+        fps = int(data.get(cv2.CAP_PROP_FPS))
+        
+        # calculate dusration of the video
+        seconds = int(frames / fps)
+        video_time = str(timedelta(seconds=seconds))
+        return video_time
+
+    def duration(self):
+        query = Video.objects.filter(mission = self)
+        if query.exists():
+            video = query[0]
+            video_path = os.path.join(settings.BASE_DIR, 'media', str(video.video_url))
+
+            return self.get_length(video_path)
+        return None
 
     def __str__(self):
         return f"{self.level} / {self.name}"

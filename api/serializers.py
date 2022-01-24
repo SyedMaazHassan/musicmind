@@ -56,6 +56,7 @@ class MissionDetailSerializer(serializers.ModelSerializer):
 ###########################################################
 
 class MissionShortSerializer(serializers.ModelSerializer):
+    duration = serializers.CharField(max_length = 20)
     class Meta:
         model = Mission
         fields = '__all__'
