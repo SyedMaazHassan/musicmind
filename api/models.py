@@ -7,6 +7,7 @@ from django.core.validators import RegexValidator
 import cv2
 from django.conf import settings
 import os
+import json
 # Create your models here.
 
 # python manage.py makemigrations
