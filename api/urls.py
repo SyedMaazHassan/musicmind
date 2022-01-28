@@ -10,7 +10,7 @@ from django.conf.urls.static import static
 # )
 
 urlpatterns = [
-    # path('', views.index, name="index"),
+    path('', views.index, name="index"),
     # GET API
     path('', views.index, name="index"),
 
@@ -34,6 +34,10 @@ urlpatterns = [
     path('subscriptions', SubscriptionApi.as_view()),    
     path('subscription/', SubscriptionApi.as_view()),
     path('subscription/<subs_id>', SubscriptionApi.as_view()),
+    path('subscription/<subs_id>/start-trial', SubscriptionApi.as_view()),
+
+
+    path('subscription/<subs_id>/payment-info', PaymentApi.as_view())
 
     # path('auth/checktoken', AuthenticationApi.as_view()),
     # path('auth/<action>', AuthenticationApi.as_view()),
@@ -52,3 +56,6 @@ urlpatterns = [
     
 ]
 
+
+urlpatterns = urlpatterns + \
+    static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

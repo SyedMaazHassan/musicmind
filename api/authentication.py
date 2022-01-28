@@ -65,7 +65,7 @@ class ApiResponse:
 
 class RequestAuthentication(BaseAuthentication, ApiResponse):
     def __init__(self):
-        self.user_auth_list = ['CategoryApi', 'LevelApi', 'MissionApi', 'SubscriptionApi']
+        self.user_auth_list = ['CategoryApi', 'LevelApi', 'MissionApi', 'SubscriptionApi', 'PaymentApi']
         ApiResponse.__init__(self)
 
     def authenticateApiKey(self, request):
@@ -91,8 +91,16 @@ class RequestAuthentication(BaseAuthentication, ApiResponse):
             message = "User credentials not provided in headers"
             return (status, message)
         try:
-            SystemUser.objects.get(uid = request.headers['uid'])
+            user = SystemUser.objects.get(uid = request.headers['uid'])
             status = True
+
+            if not user.is_trial_synced:
+                all_trials = Trial.objects.filter(user = user, is_active=True)
+                for trial in all_trials:
+                    trial.update_status()
+                user.is_trial_synced = True
+                user.save()
+
         except SystemUser.DoesNotExist:
             message = "User with given UID does not exist"
         except Exception as e:

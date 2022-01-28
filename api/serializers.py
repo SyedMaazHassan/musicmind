@@ -113,6 +113,14 @@ class CategoryShortSerializer(serializers.ModelSerializer):
 ###   FOR Subscription Details API    START           #####
 ###########################################################
 
+
+class TrialSerializer(serializers.ModelSerializer):
+    end_at = serializers.DateTimeField() 
+    class Meta:
+        model = Trial
+        fields = "__all__"
+
+
 class CurrencySerializer(serializers.ModelSerializer):
     class Meta:
         model = Currency
@@ -136,6 +144,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     def validate(self, data):
         errors = {}
+
         if 'phone' in data:
             phone = data['phone'] 
             if not (phone.isnumeric() and (9 < len(phone) < 15)):

@@ -17,6 +17,7 @@ import json
 # class Tag(mode)
 class SystemUser(models.Model):
     uid = models.CharField(unique = True, max_length = 255)
+    stripe_cust_id = models.CharField(max_length = 25)
     avatar = models.ImageField(upload_to = "avatars", null = True, blank = True, default = 'avatars/default-profile.png')
     display_name = models.CharField(max_length = 255, null = True, blank = True)
     first_name = models.CharField(max_length = 255)
@@ -24,6 +25,7 @@ class SystemUser(models.Model):
     email = models.EmailField(unique = True)
     phone = models.CharField(max_length = 15, unique = True, blank = True, null = True)
     about = models.TextField(null = True, blank = True)
+    is_trial_synced = models.BooleanField(default = True)
     created_at = models.DateTimeField(default = timezone.now)
 
     def __str__(self):
@@ -200,10 +202,42 @@ class Subscription(models.Model):
     class Meta:
         ordering = ('subs_id',)
 
+
+class Trial(models.Model):
+    id = models.AutoField(primary_key=True)
+    subscription = models.ForeignKey(Subscription, on_delete = models.CASCADE)
+    started_at = models.DateTimeField(default = timezone.now)
+    is_active = models.BooleanField(default = True)
+    user = models.ForeignKey(SystemUser, on_delete = models.CASCADE, null = True, blank = True)
+
+    def end_at(self):
+        return self.started_at + timedelta(days=self.subscription.ft_days)
+
+    def update_status(self):
+        current_date = timezone.now()
+        if current_date >= self.end_at():
+            self.is_active = False
+            self.save()
+            print("Status updated")
+
+    def __str__(self):
+        return f'{self.subscription} by User: {self.user}'
+
+class Payment(models.Model):
+    pay_id = models.AutoField(primary_key = True)
+    subscription = models.ForeignKey(Subscription, on_delete = models.CASCADE)
+    user = models.ForeignKey(SystemUser, on_delete = models.CASCADE)
+    ephemeral_key = models.CharField(max_length = 60)
+    payment_intent = models.CharField(max_length = 60)
+    status = models.IntegerField(default = 0)
+    created_at = models.DateTimeField(default = timezone.now)
+    updated_at = models.DateTimeField(default = timezone.now)
+
+
 class UnlockedLevel(models.Model):
     level = models.ForeignKey(Level, on_delete = models.CASCADE)
     is_completed = models.BooleanField(default = False)
-    user = models.ForeignKey(SystemUser, on_delete = models.CASCADE)
+    user = models.ForeignKey(SystemUser, on_delete = models.CASCADE, null = True, blank = True)
 
     def __str__(self):
         return f'{self.user} => {self.level} => Completed: {self.is_completed}'
@@ -211,7 +245,7 @@ class UnlockedLevel(models.Model):
 class UnlockedMission(models.Model):
     mission = models.ForeignKey(Mission, on_delete = models.CASCADE)
     is_completed = models.BooleanField(default = False)
-    user = models.ForeignKey(SystemUser, on_delete = models.CASCADE)
+    user = models.ForeignKey(SystemUser, on_delete = models.CASCADE, null = True, blank = True)
 
     def __str__(self):
         return f'{self.user} => {self.mission} => Completed: {self.is_completed}'

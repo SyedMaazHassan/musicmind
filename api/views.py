@@ -8,10 +8,14 @@ from rest_framework.exceptions import AuthenticationFailed
 from django.shortcuts import get_object_or_404
 # Create your views here.
 from api.models import *
+from django.conf import settings
 from api.authentication import RequestAuthentication, ApiResponse
 from api.support import beautify_errors
 import copy
 import json
+import stripe
+stripe.api_key = settings.STRIPE['secretKey']
+
 # from rest_framework.permissions import IsAuthenticated
 # from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -20,7 +24,6 @@ import json
 
 
 def index(request):
-    return render(request, "abcc.html")
     # all_categories = Category.objects.all()
     
     # for category in all_categories:
@@ -48,6 +51,7 @@ def index(request):
 
                     
     #     print(category)
+    return render(request, "abcc.html")
 
 
 
@@ -62,15 +66,27 @@ class SubscriptionApi(APIView, ApiResponse):
         serializer = SubscriptionSerializer(all_subs, many=True)
         return {'subscriptions': serializer.data}
 
+    def get_trial(self, user_obj, subscription):
+        query = Trial.objects.filter(user = user_obj, subscription = subscription)
+        result = None
+        if query.exists():
+            trial = query[0]
+            result = TrialSerializer(trial, many = False).data
+        return result
+
     def get_single_subscription(self, subs_id):
         single_sub = get_object_or_404(Subscription, subs_id = subs_id)
-        serializer = SubscriptionSerializer(single_sub, many=False)
-        return {'subscription': serializer.data}
+        return single_sub
 
     def get(self, request, subs_id=None):
         try:
             if subs_id:
-                serialized_data = self.get_single_subscription(subs_id)
+                user = SystemUser.objects.get(uid = request.headers['uid'])
+                single_subscription = self.get_single_subscription(subs_id)
+                serialized_data = {}
+                print(single_subscription)
+                serialized_data['subscription'] = SubscriptionSerializer(single_subscription, many=False).data
+                serialized_data['trial'] = self.get_trial(user, single_subscription)
             else:
                 serialized_data = self.get_multiple_subscriptions()
             self.postSuccess(serialized_data, "Subscriptions fetched successfully")
@@ -78,7 +94,92 @@ class SubscriptionApi(APIView, ApiResponse):
             self.postError({ 'subscription': str(e) })
         return Response(self.output_object)
 
+    def post(self, request, subs_id):
+        try:
+            user = SystemUser.objects.get(uid = request.headers['uid'])
+            subscription = Subscription.objects.get(subs_id = subs_id)
+            check_query = Trial.objects.filter(
+                subscription = subscription,
+                user = user    
+            )
+            if check_query.exists():
+                self.postError({'Trial': 'You have already avail the free trial for this subscription'})
+                return Response(self.output_object)
+            
+            new_trial = Trial(
+                subscription = subscription,
+                user = user
+            )
+            new_trial.save()
+            output = {
+                "trial": TrialSerializer(new_trial, many = False).data
+            }
+            self.postSuccess(output, "Free trial has been started!")
+        except Exception as e:
+            self.postError({ 'Trial': str(e) })
+        return Response(self.output_object)
+
+
+
+class PaymentApi(APIView, ApiResponse):
+    authentication_classes = [RequestAuthentication,]
     
+    def __init__(self):
+        ApiResponse.__init__(self)
+
+    def create_ephemeral_key(self, stripe_cust_id):
+        ephemeralKey = stripe.EphemeralKey.create(
+            customer=stripe_cust_id,
+            stripe_version="2020-03-02"
+        )
+        return ephemeralKey.secret
+
+    def create_payment_intent(self, stripe_cust_id, subs_object):
+        paymentIntent = stripe.PaymentIntent.create(
+            amount=int(subs_object.total_price() * 100),
+            currency=subs_object.currency.code,
+            customer=stripe_cust_id,
+            automatic_payment_methods={
+                'enabled': True,
+            }
+        )
+        return paymentIntent.client_secret
+
+    def get(self, request, subs_id):
+        try:
+            # Get subscription
+            subscription = get_object_or_404(Subscription, subs_id=subs_id)
+            # Get user object
+            user = SystemUser.objects.get(uid = request.headers['uid'])
+            # Get customer_id
+            stripe_cust_id = user.stripe_cust_id
+            # Get ephemeralKey 
+            ephemeral_key = self.create_ephemeral_key(stripe_cust_id)
+            # Get payment Intent
+            payment_intent = self.create_payment_intent(stripe_cust_id, subscription)
+            
+            # Create new payment
+            # new_payment = Payment(
+            #     subscription = subscription,
+            #     user = user,
+            #     ephemeral_key = ephemeral_key,
+            #     payment_intent = payment_intent
+            # )
+            # new_payment.save()
+
+            output = {
+                'payment_sheet': {
+                    'paymentIntent': payment_intent,
+                    'ephemeralKey': ephemeral_key,
+                    'customer': stripe_cust_id,
+                    'publishableKey': settings.STRIPE['publishableKey']
+                }
+            }
+            self.postSuccess(output, 'Sheet info collected successfully')
+        except Exception as e:
+            self.postError({ 'payment_sheet': str(e) })
+
+        return Response(self.output_object)
 
 
 class MissionApi(APIView, ApiResponse):
@@ -330,10 +431,22 @@ class UserApi(APIView, ApiResponse):
                 first_course = all_courses[0]
                 self.unlock_first_level_mission(user, first_course)
              
+    def create_stripe_user(self, user_info):
+        full_name = f"{user_info['first_name']} {user_info['last_name']}"
+        customer = stripe.Customer.create(
+            name = full_name,
+            email = user_info['email']
+        )
+        return customer['id']
+
+    def delete_stripe_user(self, cust_id):
+        stripe.Customer.delete(cust_id)
 
     def post(self, request, uid=None):
         try:
             data = request.data.copy()
+            stripe_cust_id = self.create_stripe_user(data)
+            data['stripe_cust_id'] = stripe_cust_id
             data['uid'] = uid
             serializer = UserSerializer(data = data)
             if serializer.is_valid():
@@ -342,6 +455,7 @@ class UserApi(APIView, ApiResponse):
                 self.unlock_video(uid)
                 self.postSuccess({'user': serializer.data}, "User added successfully")
             else:
+                self.delete_stripe_user(stripe_cust_id)
                 self.postError(beautify_errors(serializer.errors))                 
         except Exception as e:
             self.postError({ 'uid': str(e) })

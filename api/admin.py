@@ -15,4 +15,5 @@ admin.site.register(Video)
 admin.site.register(Subscription)
 admin.site.register(Currency)
 admin.site.register(API_Key)
+admin.site.register(Trial)
 
