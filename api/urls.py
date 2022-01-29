@@ -37,8 +37,9 @@ urlpatterns = [
     path('subscription/<subs_id>/start-trial', SubscriptionApi.as_view()),
 
 
-    path('subscription/<subs_id>/payment-info', PaymentApi.as_view())
+    path('subscription/<subs_id>/payment-info', PaymentApi.as_view()),
 
+    path('payment', PaymentApi.as_view())
     # path('auth/checktoken', AuthenticationApi.as_view()),
     # path('auth/<action>', AuthenticationApi.as_view()),
 

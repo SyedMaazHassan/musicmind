@@ -145,6 +145,28 @@ class PaymentApi(APIView, ApiResponse):
         )
         return paymentIntent.client_secret
 
+    def post(self, request):
+        try:
+            payment_intent = request.data['paymentIntent']
+            ephemeral_key = request.data['ephemeralKey']
+            status = request.data['status']
+            if int(status) not in [1, -1]:
+                raise Exception('Invalid payment status')
+            
+            my_status = 'COMPLETED' if status == '1' else 'CANCELLED'
+            selected_payment = Payment.objects.get(
+                payment_intent = payment_intent,
+                ephemeral_key = ephemeral_key,
+            )
+            selected_payment.status = status
+            selected_payment.save()
+
+            self.postSuccess({'Payment': my_status}, f'Payment has been {my_status} successfully!')
+        except Exception as e:
+            self.postError({ 'Payment': str(e) })
+        return Response(self.output_object)
+
+
     def get(self, request, subs_id):
         try:
             # Get subscription
@@ -159,13 +181,13 @@ class PaymentApi(APIView, ApiResponse):
             payment_intent = self.create_payment_intent(stripe_cust_id, subscription)
             
             # Create new payment
-            # new_payment = Payment(
-            #     subscription = subscription,
-            #     user = user,
-            #     ephemeral_key = ephemeral_key,
-            #     payment_intent = payment_intent
-            # )
-            # new_payment.save()
+            new_payment = Payment(
+                subscription = subscription,
+                user = user,
+                ephemeral_key = ephemeral_key,
+                payment_intent = payment_intent
+            )
+            new_payment.save()
 
             output = {
                 'payment_sheet': {
