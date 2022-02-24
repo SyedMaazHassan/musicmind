@@ -80,8 +80,8 @@ class SubscriptionApi(APIView, ApiResponse):
 
     def get(self, request, subs_id=None):
         try:
+            user = SystemUser.objects.get(uid = request.headers['uid'])
             if subs_id:
-                user = SystemUser.objects.get(uid = request.headers['uid'])
                 single_subscription = self.get_single_subscription(subs_id)
                 serialized_data = {}
                 print(single_subscription)
@@ -89,6 +89,7 @@ class SubscriptionApi(APIView, ApiResponse):
                 serialized_data['trial'] = self.get_trial(user, single_subscription)
             else:
                 serialized_data = self.get_multiple_subscriptions()
+            self.add_payment_info(user)
             self.postSuccess(serialized_data, "Subscriptions fetched successfully")
         except Exception as e:
             self.postError({ 'subscription': str(e) })
@@ -97,6 +98,7 @@ class SubscriptionApi(APIView, ApiResponse):
     def post(self, request, subs_id):
         try:
             user = SystemUser.objects.get(uid = request.headers['uid'])
+
             subscription = Subscription.objects.get(subs_id = subs_id)
             check_query = Trial.objects.filter(
                 subscription = subscription,
@@ -111,14 +113,16 @@ class SubscriptionApi(APIView, ApiResponse):
                 user = user
             )
             new_trial.save()
+            user.is_trial_taken = True
+            user.save()
             output = {
                 "trial": TrialSerializer(new_trial, many = False).data
             }
+            self.add_payment_info(user)
             self.postSuccess(output, "Free trial has been started!")
         except Exception as e:
             self.postError({ 'Trial': str(e) })
         return Response(self.output_object)
-
 
 
 class PaymentApi(APIView, ApiResponse):
@@ -147,6 +151,7 @@ class PaymentApi(APIView, ApiResponse):
 
     def post(self, request):
         try:
+            user = SystemUser.objects.get(uid = request.headers['uid'])
             payment_intent = request.data['paymentIntent']
             ephemeral_key = request.data['ephemeralKey']
             status = request.data['status']
@@ -159,8 +164,9 @@ class PaymentApi(APIView, ApiResponse):
                 ephemeral_key = ephemeral_key,
             )
             selected_payment.status = status
+            selected_payment.updated_at = timezone.now()
             selected_payment.save()
-
+            self.add_payment_info(user)
             self.postSuccess({'Payment': my_status}, f'Payment has been {my_status} successfully!')
         except Exception as e:
             self.postError({ 'Payment': str(e) })
@@ -197,6 +203,7 @@ class PaymentApi(APIView, ApiResponse):
                     'publishableKey': settings.STRIPE['publishableKey']
                 }
             }
+            self.add_payment_info(user)
             self.postSuccess(output, 'Sheet info collected successfully')
         except Exception as e:
             self.postError({ 'payment_sheet': str(e) })
@@ -253,9 +260,16 @@ class MissionApi(APIView, ApiResponse):
                             user = user_obj
                         )                    
         else:
+            print("marking this course completed, since no next level exist")
+            CompletedCourses.objects.create(
+                course = current_level_obj.course,
+                user = user_obj
+            )
+            print("course marked as completed")
+            
             print("Next level not Found!")
-            print("Unlocking next course...")
-            self.unlock_next_course(user_obj, current_level_obj.course)
+            # print("Unlocking next course...")
+            # self.unlock_next_course(user_obj, current_level_obj.course)
 
     def unlock_next_mission(self, user_obj, current_mission_obj):
         next_mission = current_mission_obj.get_next_mission()
@@ -290,30 +304,12 @@ class MissionApi(APIView, ApiResponse):
 
         if query.exists():
             # current_level = mission.level
-
             # Marking mission as COMPLETED
             unlocked_mission = query[0]
             unlocked_mission.is_completed = True
             unlocked_mission.save()
-
             print("Unlocking next mission...")
             self.unlock_next_mission(user_obj, unlocked_mission.mission)
-
-            # Check if all missions of current level is completed by this user
-            # all_missions_of_this_level = Mission.objects.filter(level = current_level).count()
-            # all_done_missions_by_user = UnlockedMission.objects.filter(is_completed = True, user = user_obj)
-            # all_done_missions_of_this_level_by_user = 0
-            # for done_mission in all_done_missions_by_user:
-            #     if done_mission.mission.level == current_level:
-            #         all_done_missions_of_this_level_by_user += 1
-
-            # # If all missions completed, then mark this level completed
-            # if all_done_missions_of_this_level_by_user == all_missions_of_this_level:
-            #     unlocked_level = UnlockedLevel.objects.get(user = user_obj, level = current_level)
-            #     unlocked_level.is_completed = True
-            #     unlocked_level.save()
-            #     # Unlocking the next mission
-
             return True
 
         return False
@@ -323,6 +319,8 @@ class MissionApi(APIView, ApiResponse):
             self.postError({'mission_id': 'Mission id is missing'})
             return Response(self.output_object)
         try:
+            user = SystemUser.objects.get(uid = request.headers['uid'])
+
             single_mission = Mission.objects.get(mission_id = mission_id) 
                         
             if not self.check_access(single_mission, request.headers['uid']):
@@ -330,6 +328,7 @@ class MissionApi(APIView, ApiResponse):
                 return Response(self.output_object)
             
             serializer = MissionDetailSerializer(single_mission, many = False)
+            self.add_payment_info(user)
             self.postSuccess({'mission': serializer.data}, "Mission fetched successfully")
         except Exception as e:
             self.postError({ 'mission': str(e) })
@@ -358,6 +357,7 @@ class LevelApi(APIView, ApiResponse):
             serializer = LevelDetailSerializer(single_level, many = False)
             # Get logged in user
             user_obj = SystemUser.objects.get(uid = request.headers['uid'])
+            self.add_payment_info(user_obj)
 
             if not self.check_access(single_level, user_obj):
                 self.postError({'level': 'This level is locked'})
@@ -398,35 +398,56 @@ class CategoryApi(APIView, ApiResponse):
         serializer = CategoryShortSerializer(all_categories, many=True)
         return {'categories': serializer.data}
 
+    def get_courses(self, category, user):
+        related_courses = self.get_related_courses(category)
+        courses = CourseSerializer(related_courses, many = True).data
+        courses = json.loads(json.dumps(courses))
+        return courses
+
+    def get_completed_courses(self, user):
+        all_completed_courses = CompletedCourse.objects.filter(user = user).values_list('course_id', flat = True)
+        return list(all_completed_courses)
+
+    def apply_ticks_on_courses(self, course, completed_courses):
+        if course['course_id'] in completed_courses:
+            is_completed = True
+        else:
+            is_completed = False
+        course['is_completed'] = is_completed
+
+    def get_unlocked_levels(self, user):
+        unlocked_levels = UnlockedLevel.objects.filter(user = user).values_list('level_id', 'is_completed')
+        return unlocked_levels
+
+    def apply_ticks_on_levels(self, level, unlocked_levels):
+        level['is_locked'] = True
+        level['is_completed'] = False
+        single_unlocked_level = unlocked_levels.filter(level_id = level['level_id']).first()
+        if single_unlocked_level:
+            level['is_locked'] = False
+            level['is_completed'] = True if single_unlocked_level[1] else False 
 
     def get_single_category(self, cat_id, user_obj):
         single_cat = get_object_or_404(Category, cat_id = cat_id)
         serializer = CategoryDetailedSerializer(single_cat, many=False)
         proper_data = json.loads(json.dumps(serializer.data))
-        # print(proper_data)
-        unlocked_levels = UnlockedLevel.objects.filter(user = user_obj)
-
-        all_courses = proper_data['courses']
-        for course_index in range(len(all_courses)):
-            course = all_courses[course_index]
+        all_courses = self.get_courses(single_cat, user_obj)
+        all_completed_courses = self.get_completed_courses(user_obj)
+        all_unlocked_levels = self.get_unlocked_levels(user_obj)
+      
+        for course in all_courses:
+            self.apply_ticks_on_courses(course, all_completed_courses)
             all_levels = course['levels']
-
-            for level_index in range(len(all_levels)):
-                level = all_levels[level_index]
-                level['is_locked'] = True
-                level['is_completed'] = False
-                query_test = unlocked_levels.filter(level_id = level['level_id'])
-                if query_test.exists():
-                    level['is_locked'] = False
-                    if query_test[0].is_completed:
-                        level['is_completed'] = True
-
+            for level in all_levels:
+                self.apply_ticks_on_levels(level, all_unlocked_levels)
+        proper_data['courses'] = all_courses
         return {'category': proper_data}
 
     def get(self, request, cat_id=None):
         try:
+            user_object = SystemUser.objects.get(uid = request.headers['uid'])
+            self.add_payment_info(user_object)
             if cat_id:
-                user_object = SystemUser.objects.get(uid = request.headers['uid'])
                 serialized_data = self.get_single_category(cat_id, user_object)
             else:
                 serialized_data = self.get_multiple_categories()
@@ -440,18 +461,6 @@ class UserApi(APIView, ApiResponse):
     authentication_classes = [RequestAuthentication]
     def __init__(self):
         ApiResponse.__init__(self)
-
-
-    def unlock_video(self, uid):
-        user = SystemUser.objects.get(uid = uid)
-        # Get first category
-        all_cats = Category.objects.all()
-        if all_cats.count() > 0:
-            first_cat = all_cats[0]
-            all_courses = Course.objects.filter(category = first_cat)
-            if all_courses.count() > 0:
-                first_course = all_courses[0]
-                self.unlock_first_level_mission(user, first_course)
              
     def create_stripe_user(self, user_info):
         full_name = f"{user_info['first_name']} {user_info['last_name']}"
@@ -473,8 +482,8 @@ class UserApi(APIView, ApiResponse):
             serializer = UserSerializer(data = data)
             if serializer.is_valid():
                 serializer.save()
-                # Unlocking level and missions for this new user
-                self.unlock_video(uid)
+                user = SystemUser.objects.get(uid = uid)
+                self.add_payment_info(user)
                 self.postSuccess({'user': serializer.data}, "User added successfully")
             else:
                 self.delete_stripe_user(stripe_cust_id)
@@ -489,6 +498,7 @@ class UserApi(APIView, ApiResponse):
                 raise Exception("UID is missing")
             user = get_object_or_404(SystemUser, uid=uid)
             serializer = UserSerializer(user, many = False)
+            self.add_payment_info(user)
             self.postSuccess({'user': serializer.data}, "User fetched successfully")
         except Exception as e:
             self.postError({ 'uid': str(e) })
@@ -497,13 +507,12 @@ class UserApi(APIView, ApiResponse):
     def patch(self, request, uid=None):
         try:
             user_obj = get_object_or_404(SystemUser, uid=uid)
-
+            self.add_payment_info(user_obj)
             if user_obj.email != request.data['email']:
                 self.postError({'email': 'To avoid problems with future signin, Email cannot be updated'})
                 return Response(self.output_object)
 
             serializer = UserSerializer(user_obj, data=request.data, partial = True)
-            
             if serializer.is_valid():
                 serializer.save()
                 self.postSuccess({'user': serializer.data}, "User updated successfully")
@@ -514,237 +523,3 @@ class UserApi(APIView, ApiResponse):
         return Response(self.output_object)
 
     # def post(self, request, uid):
-
-
-
-class AddUserApi(APIView):
-    def post(self, request):
-        api_key_check = check_api_key(request)
-        if api_key_check['status']:
-            return api_key_check['response']
-        else:
-            output = api_key_check['output']
-
-        serializer = UserSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            serializer.save()
-            output['message'] = "User is saved successfully!"
-            output['data'] = serializer.data
-        else:
-            output['status'] = 404
-            output['message'] = "Something went wrong!"
-            output['errors'] = serializer.errors
-
-        return Response(output)
-
-
-
-class GetScriptApi(APIView):
-    # authentication_process = [JWTAuthentication]
-    # permission_classes = [IsAuthenticated]
-
-    def get(self, request, id=None):
-        api_key_check = check_api_key(request)
-        if api_key_check['status']:
-            return api_key_check['response']
-        else:
-            output = api_key_check['output']
-
-        if id:
-            try:
-                script = get_object_or_404(Script, id=id)
-                serializer = ScriptSerializer(script, many = False)
-                output["data"] = serializer.data
-                output["status"] = True
-                    
-            except Exception as e:
-                output["status"] = False
-                output["errors"] = [str(e)]            
-        else:
-
-            script = Script.objects.all()
-            serializer = AllScriptSerializer(script, many=True)
-
-            output["data"] = serializer.data
-            if script.count() == 0:
-                output["message"] = "No script exists"
-            else:
-                output["message"] = ""
-
-        return Response(output)
-
-
-# class GetEmployeeApi(APIView):
-#     def get(self, request):
-#         output = {}
-#         is_deleted = request.data['is_deleted']
-#         if is_deleted and is_deleted == "true":
-#             all_employees = Employee.objects.filter(
-#                 is_deleted=True, is_active=False)
-#         else:
-#             all_employees = Employee.objects.filter(
-#                 is_deleted=False, is_active=True)
-
-#         # Getting students
-#         # Serializing -> converting to JSON
-#         serializer = EmployeeSerializer(all_employees, many=True)
-#         output['status'] = 200
-#         output['payload'] = serializer.data
-#         return Response(output)
-
-
-# class SaveEmployeeApi(APIView):
-#     def post(self, request):
-#         output = {}
-#         data = request.data
-
-#         # Creating record
-        # serializer = EmployeeSerializer(data=data)
-
-        # if serializer.is_valid():
-        #     serializer.save()
-        #     output['status'] = 200
-        #     output['message'] = "Employee is saved successfully!"
-        #     output['details'] = serializer.data
-        # else:
-        #     output['status'] = 403
-        #     output['message'] = "Something went wrong!"
-        #     output['errors'] = serializer.errors
-
-        # return Response(output)
-
-
-# class UpdateEmployeeApi(APIView):
-#     def update_details(self, request, partial=False):
-#         output = {
-#             'status': 403,
-#             'message': "Request failed"
-#         }
-#         try:
-#             id = request.data['id']
-#             print(id)
-#             student = Employee.objects.get(id=id)
-#             if partial:
-#                 serializer = EmployeeSerializer(
-#                     instance=student, data=request.data, partial=True)
-#             else:
-#                 serializer = EmployeeSerializer(
-#                     instance=student, data=request.data)
-#             if serializer.is_valid():
-#                 serializer.save()
-#                 output['status'] = 200
-#                 output['message'] = "Employee record updated successfully!"
-#                 output['details'] = serializer.data
-#             else:
-#                 output['errors'] = serializer.errors
-#         except Exception as e:
-#             output['errors'] = str(e)
-
-#         return output
-
-#     def patch(self, request):
-#         output = self.update_details(request, True)
-#         return Response(output)
-
-#     def put(self, request):
-#         output = self.update_details(request, False)
-#         return Response(output)
-
-
-# class DeleteEmployeeApi(APIView):
-#     def delete(self, request):
-#         output = {}
-#         print(request.data['id'])
-#         try:
-#             id = request.data['id']
-#             employee = Employee.objects.get(id=id)
-#             serializer = EmployeeSerializer(instance=employee, many=False)
-#             employee.is_active = False
-#             employee.is_deleted = True
-#             employee.save()
-#             output['status'] = 200
-#             output['message'] = "Employee has been deleted!"
-#             output['details'] = serializer.data
-#         except Exception as e:
-#             output['status'] = 200
-#             output['message'] = "Request failed!"
-#             output['details'] = str(e)
-
-#         return Response(output)
-
-
-# class UndeleteEmployeeApi(APIView):
-#     def post(self, request):
-#         output = {}
-#         id = request.data['id']
-#         try:
-#             id = request.data['id']
-#             employee = Employee.objects.get(id=id)
-#             serializer = EmployeeSerializer(instance=employee, many=False)
-#             employee.is_active = True
-#             employee.is_deleted = False
-#             employee.save()
-#             output['status'] = 200
-#             output['message'] = "Employee has been undeleted and active now!"
-#             output['details'] = serializer.data
-#         except Exception as e:
-#             output['status'] = 200
-#             output['message'] = "Request failed!"
-#             output['details'] = str(e)
-
-#         return Response(output)
-
-
-# class GetCompanyApi(APIView):
-#     def get(self, request):
-#         output = {}
-#         if 'id' in request.data:
-#             id = request.data['id']
-#             company = get_object_or_404(Company, id=id)
-#             print(company)
-#             # Serializing -> converting to JSON
-#             serializer = CompanySerializer(company, many=False)
-#             output['status'] = 200
-#             output['payload'] = serializer.data
-#         else:
-#             output['status'] = 403
-#             output['message'] = "Company ID is required!"
-
-#         return Response(output)
-
-
-# class UpdateCompanyApi(APIView):
-#     def update_details(self, request, partial=False):
-#         output = {
-#             'status': 403,
-#             'message': "Request failed"
-#         }
-#         try:
-#             id = request.data['id']
-#             student = Company.objects.get(id=id)
-#             if partial:
-#                 serializer = CompanySerializer(
-#                     instance=student, data=request.data, partial=True)
-#             else:
-#                 serializer = CompanySerializer(
-#                     instance=student, data=request.data)
-#             if serializer.is_valid():
-#                 serializer.save()
-#                 output['status'] = 200
-#                 output['message'] = "Company record updated successfully!"
-#                 output['details'] = serializer.data
-#             else:
-#                 output['errors'] = serializer.errors
-#         except Exception as e:
-#             output['errors'] = str(e)
-
-#         return output
-
-#     def patch(self, request):
-#         output = self.update_details(request, True)
-#         return Response(output)
-
-#     def put(self, request):
-#         output = self.update_details(request, False)
-#         return Response(output)

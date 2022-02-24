@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User, auth
@@ -6,8 +8,10 @@ import uuid
 from django.core.validators import RegexValidator
 import cv2
 from django.conf import settings
+from api.mini_func import *
 import os
 import json
+
 # Create your models here.
 
 # python manage.py makemigrations
@@ -27,14 +31,26 @@ class SystemUser(models.Model):
     about = models.TextField(null = True, blank = True)
     is_trial_synced = models.BooleanField(default = True)
     created_at = models.DateTimeField(default = timezone.now)
+    is_trial_taken = models.BooleanField(default = False)
+    is_trial_end = models.BooleanField(default = False)
+    is_fee_paid = models.BooleanField(default = False)
 
     def __str__(self):
-        return f"{self.first_name}"
+        return f"{self.first_name} - {self.uid}"
 
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'
 
+
+@receiver(post_save, sender = SystemUser)
+def unlock_all_missions(sender, instance, **kwargs):
+    user = instance
+    if kwargs['created']:
+        print(f"{user} created")
+        all_courses = get_related_courses_mini(None)
+        for course in all_courses:
+            unlock_first_level_and_mission(user, course)
 
 class Category(models.Model):
     cat_id = models.AutoField(primary_key=True)
@@ -61,6 +77,7 @@ class Course(models.Model):
     course_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length = 15)
     category = models.ForeignKey(Category, related_name='courses', on_delete = models.CASCADE)
+    available_on_free_trial = models.BooleanField(default = False)
     created_at = models.DateTimeField(default = timezone.now)
 
     def get_next_course(self):
@@ -73,12 +90,20 @@ class Course(models.Model):
         return None  
 
     def __str__(self):
-        return f"{self.category} / {self.name}"
+        return f"{self.category} / {self.name} ({self.course_id})"
 
     class Meta:
         ordering = ('course_id',)
 
 
+@receiver(post_save, sender = Course)
+def unlock_demo_for_all_users(sender, instance, **kwargs):
+    if not kwargs['created']:
+        all_users = SystemUser.objects.all()
+        new_course = instance
+        for user in all_users:
+            unlock_first_level_and_mission(user, new_course)
+    
 class Level(models.Model):
     level_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length = 15)
@@ -218,6 +243,8 @@ class Trial(models.Model):
         if current_date >= self.end_at():
             self.is_active = False
             self.save()
+            self.user.is_trial_end = True
+            self.user.save()
             print("Status updated")
 
     def __str__(self):
@@ -233,6 +260,24 @@ class Payment(models.Model):
     created_at = models.DateTimeField(default = timezone.now)
     updated_at = models.DateTimeField(default = timezone.now)
 
+    def end_at(self):
+        days = 0
+        if self.subscription.freq == 'month':
+            days = 30
+        elif self.subscription.freq == 'year':
+            days = 365
+        else:
+            days = 7
+        return self.updated_at + timedelta(days=days)
+
+    def is_expired(self):
+        current_date = timezone.now()
+        if current_date >= self.end_at():
+            return True
+        return False
+
+    class Meta:
+        ordering = ('pay_id',)
 
 class UnlockedLevel(models.Model):
     level = models.ForeignKey(Level, on_delete = models.CASCADE)
@@ -250,6 +295,11 @@ class UnlockedMission(models.Model):
     def __str__(self):
         return f'{self.user} => {self.mission} => Completed: {self.is_completed}'
 
+
+class CompletedCourse(models.Model):
+    course = models.ForeignKey(Course, on_delete = models.CASCADE)
+    user = models.ForeignKey(SystemUser, on_delete = models.CASCADE, null = True, blank = True)
+    timestamp = models.DateTimeField(default = timezone.now)
 
 class API_Key(models.Model):
     key = models.UUIDField(unique = True, default=uuid.uuid4, editable = False)

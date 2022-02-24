@@ -3,7 +3,7 @@ from api.models import *
 # # Register your models here.
 # admin.site.register(Tag)
 # admin.site.register(Category)
-# admin.site.register(Script)
+admin.site.register(CompletedCourse)
 admin.site.register(SystemUser)
 admin.site.register(Category)
 admin.site.register(Course)

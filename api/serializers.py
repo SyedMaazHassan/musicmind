@@ -92,7 +92,6 @@ class CourseSerializer(serializers.ModelSerializer):
 
 
 class CategoryDetailedSerializer(serializers.ModelSerializer):
-    courses = CourseSerializer(many = True, read_only = True)
     class Meta:
         model = Category
         fields = "__all__"
