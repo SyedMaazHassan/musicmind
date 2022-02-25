@@ -250,6 +250,12 @@ class MissionApi(APIView, ApiResponse):
         if next_level:
             print("Next level found!")
             query = UnlockedLevel.objects.filter(user = user_obj, level = next_level)
+            first_mission = Mission.objects.filter(level = next_level).first()
+            if first_mission:
+                url = f"mission/{first_mission.mission_id}"
+            else:
+                url = f"category/{next_level.course.category.cat_id}"
+
             if not query.exists():
                 print("Next level unlocked")
                 UnlockedLevel.objects.create(
@@ -257,9 +263,7 @@ class MissionApi(APIView, ApiResponse):
                     user = user_obj
                 )
 
-                all_missions = Mission.objects.filter(level = next_level)
-                if all_missions.count() > 0:
-                    first_mission = all_missions[0]
+                if first_mission:
                     if not UnlockedMission.objects.filter(user = user_obj, mission = first_mission).exists():
                         UnlockedMission.objects.create(
                             mission = first_mission,
@@ -267,8 +271,8 @@ class MissionApi(APIView, ApiResponse):
                         )      
             return {
                 'message': 'Level completed',
-                'button_text': 'Next level',
-                'url': f'level/{next_level.level_id}'
+                'button_text': 'Go next',
+                'url': url
             }              
         else:
             print("marking this course completed, since no next level exist")
@@ -299,7 +303,7 @@ class MissionApi(APIView, ApiResponse):
             print("Unlocked next mission")
             return {
                 'message': 'Mission completed',
-                'button_text': 'Next mission',
+                'button_text': 'Go next',
                 'url': f'mission/{next_mission.mission_id}'
             }
         else:
