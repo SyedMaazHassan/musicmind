@@ -48,7 +48,7 @@ def unlock_all_missions(sender, instance, **kwargs):
     user = instance
     if kwargs['created']:
         print(f"{user} created")
-        all_courses = get_related_courses_mini(None)
+        all_courses = get_related_courses_mini(user, None)
         for course in all_courses:
             unlock_first_level_and_mission(user, course)
 
@@ -164,6 +164,13 @@ class Mission(models.Model):
 
             return self.get_length(video_path)
         return None
+
+    def where_you_left_name(self):
+        return {
+            'mission_id': self.mission_id,
+            'course_name': self.level.course.category.name,
+            'mission_name': f'{self.level.course.name} / {self.level.name} / {self.name}'
+        }
 
     def __str__(self):
         return f"{self.level} / {self.name}"
@@ -293,8 +300,10 @@ class UnlockedMission(models.Model):
     user = models.ForeignKey(SystemUser, on_delete = models.CASCADE, null = True, blank = True)
 
     def __str__(self):
-        return f'{self.user} => {self.mission} => Completed: {self.is_completed}'
+        return f'({self.pk}) {self.user} => {self.mission} => Completed: {self.is_completed}'
 
+    class Meta:
+        ordering = ('pk',)
 
 class CompletedCourse(models.Model):
     course = models.ForeignKey(Course, on_delete = models.CASCADE)

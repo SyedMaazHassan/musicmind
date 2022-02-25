@@ -19,9 +19,18 @@ class ApiResponse:
             'warnings': None
         }
 
-    def get_related_courses(self, selected_category):
-        return get_related_courses_mini(selected_category)
+    def get_related_courses(self, user, selected_category):
+        return get_related_courses_mini(user, selected_category)
         
+    def add_where_you_left_mission(self, user, category):
+        all_unlocked_missions = list(UnlockedMission.objects.filter(user = user))
+        for i in all_unlocked_missions:
+            focused = all_unlocked_missions.pop()
+            if focused.mission.level.course.category == category:
+                mission_to_return = focused.mission
+                return mission_to_return.where_you_left_name()
+        return None
+
     def add_payment_info(self, user):
         self.output_object['is_trial_taken'] = user.is_trial_taken
         self.output_object['is_trial_end'] = user.is_trial_end

@@ -167,6 +167,12 @@ class PaymentApi(APIView, ApiResponse):
             selected_payment.updated_at = timezone.now()
             selected_payment.save()
             self.add_payment_info(user)
+
+            # Unlocking all Courses
+            all_courses = self.get_related_courses(user, None)
+            for course in all_courses:
+                self.unlock_first_level_mission(user, course)
+
             self.postSuccess({'Payment': my_status}, f'Payment has been {my_status} successfully!')
         except Exception as e:
             self.postError({ 'Payment': str(e) })
@@ -258,16 +264,24 @@ class MissionApi(APIView, ApiResponse):
                         UnlockedMission.objects.create(
                             mission = first_mission,
                             user = user_obj
-                        )                    
+                        )      
+            return {
+                'message': 'Level completed',
+                'button_text': 'Next level',
+                'url': f'level/{next_level.level_id}'
+            }              
         else:
             print("marking this course completed, since no next level exist")
-            CompletedCourses.objects.create(
+            CompletedCourse.objects.create(
                 course = current_level_obj.course,
                 user = user_obj
             )
             print("course marked as completed")
-            
-            print("Next level not Found!")
+            return {
+                'message': 'Course completed',
+                'button_text': 'Explore more courses',
+                'url': f'category/{current_level_obj.course.category.cat_id}'
+            }
             # print("Unlocking next course...")
             # self.unlock_next_course(user_obj, current_level_obj.course)
 
@@ -283,6 +297,11 @@ class MissionApi(APIView, ApiResponse):
                     user = user_obj
                 )
             print("Unlocked next mission")
+            return {
+                'message': 'Mission completed',
+                'button_text': 'Next mission',
+                'url': f'mission/{next_mission.mission_id}'
+            }
         else:
             print("next mission not FOUND...")
             # Current mission is the last mission, its mean level is completed
@@ -292,8 +311,16 @@ class MissionApi(APIView, ApiResponse):
             unlocked_level.is_completed = True
             unlocked_level.save()
 
-            print("Unlocking next level...")
-            self.unlock_next_level(user_obj, current_mission_obj.level)
+            if (user_obj.is_trial_taken and not user_obj.is_trial_end) or (user_obj.is_fee_paid):
+                print("Unlocking next level...")
+                return self.unlock_next_level(user_obj, current_mission_obj.level)
+            else:
+                print("Purchase a plan to access the full course!")
+                return {
+                    'message': 'Want full access of the content?',
+                    'button_text': 'Unlock courses',
+                    'url': 'subscriptions'
+                }
 
     def check_access(self, mission, uid):
         user_obj = SystemUser.objects.get(uid = uid)
@@ -309,9 +336,7 @@ class MissionApi(APIView, ApiResponse):
             unlocked_mission.is_completed = True
             unlocked_mission.save()
             print("Unlocking next mission...")
-            self.unlock_next_mission(user_obj, unlocked_mission.mission)
-            return True
-
+            return self.unlock_next_mission(user_obj, unlocked_mission.mission)
         return False
 
     def get(self, request, mission_id=None):
@@ -320,16 +345,19 @@ class MissionApi(APIView, ApiResponse):
             return Response(self.output_object)
         try:
             user = SystemUser.objects.get(uid = request.headers['uid'])
-
             single_mission = Mission.objects.get(mission_id = mission_id) 
-                        
-            if not self.check_access(single_mission, request.headers['uid']):
+            access_result = self.check_access(single_mission, request.headers['uid'])
+            if not access_result:
                 self.postError({'mission': 'This mission is locked'})
                 return Response(self.output_object)
             
             serializer = MissionDetailSerializer(single_mission, many = False)
+            full_data = {
+                'mission': serializer.data,
+                'next': access_result
+            }
             self.add_payment_info(user)
-            self.postSuccess({'mission': serializer.data}, "Mission fetched successfully")
+            self.postSuccess(full_data, "Mission fetched successfully")
         except Exception as e:
             self.postError({ 'mission': str(e) })
         return Response(self.output_object)
@@ -399,7 +427,7 @@ class CategoryApi(APIView, ApiResponse):
         return {'categories': serializer.data}
 
     def get_courses(self, category, user):
-        related_courses = self.get_related_courses(category)
+        related_courses = self.get_related_courses(user, category)
         courses = CourseSerializer(related_courses, many = True).data
         courses = json.loads(json.dumps(courses))
         return courses
@@ -427,6 +455,11 @@ class CategoryApi(APIView, ApiResponse):
             level['is_locked'] = False
             level['is_completed'] = True if single_unlocked_level[1] else False 
 
+    def serialize_where_you_left(self, user, category):
+        last_visited_mission = self.add_where_you_left_mission(user, category)
+        # data = MissionShortSerializer(last_visited_mission, many = False).data
+        return last_visited_mission
+
     def get_single_category(self, cat_id, user_obj):
         single_cat = get_object_or_404(Category, cat_id = cat_id)
         serializer = CategoryDetailedSerializer(single_cat, many=False)
@@ -434,13 +467,14 @@ class CategoryApi(APIView, ApiResponse):
         all_courses = self.get_courses(single_cat, user_obj)
         all_completed_courses = self.get_completed_courses(user_obj)
         all_unlocked_levels = self.get_unlocked_levels(user_obj)
-      
+
         for course in all_courses:
             self.apply_ticks_on_courses(course, all_completed_courses)
             all_levels = course['levels']
             for level in all_levels:
                 self.apply_ticks_on_levels(level, all_unlocked_levels)
         proper_data['courses'] = all_courses
+        proper_data['where_you_left'] = self.add_where_you_left_mission(user_obj, single_cat)
         return {'category': proper_data}
 
     def get(self, request, cat_id=None):

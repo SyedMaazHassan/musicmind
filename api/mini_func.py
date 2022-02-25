@@ -42,9 +42,14 @@ def unlock_first_level_and_mission(user, course):
     print("Not Level exist")
     print("====================")
 
-def get_related_courses_mini(category):
+
+
+def get_related_courses_mini(user, category):
     from api.models import Course
-    all_courses = Course.objects.filter(available_on_free_trial = True)
+    if user.is_fee_paid:
+        all_courses = Course.objects.all()
+    else:
+        all_courses = Course.objects.filter(available_on_free_trial = True) 
     if category:
         all_courses = all_courses.filter(category = category)
     return all_courses
