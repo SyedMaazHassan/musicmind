@@ -30,21 +30,6 @@ class ApiResponse:
         if first_unlocked_mission:
             return first_unlocked_mission.mission.where_you_left_name()
         return None
-        
-        # unlocked_missions = all_unlocked_missions.filter(is_completed = True)
-        
-        # if unlocked_missions.count() == 0 or not (user.is_trial_taken or user.is_trial_end):
-        #     mission_to_return = all_unlocked_missions.first().mission
-        #     return mission_to_return.where_you_left_name()
-
-        # all_unlocked_missions = list(all_unlocked_missions)
-        # for i in all_unlocked_missions:
-        #     focused = all_unlocked_missions.pop()
-        #     if focused.mission.level.course.category == category:
-        #         mission_to_return = focused.mission
-        #         return mission_to_return.where_you_left_name()
-        
-        return None
 
     def add_payment_info(self, user):
         self.output_object['is_trial_taken'] = user.is_trial_taken
