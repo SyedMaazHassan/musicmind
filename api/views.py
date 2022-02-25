@@ -350,7 +350,12 @@ class MissionApi(APIView, ApiResponse):
             if not access_result:
                 self.postError({'mission': 'This mission is locked'})
                 return Response(self.output_object)
-            
+            #Adding visit
+            last_visit_object = LastVisit.objects.update_or_create(
+                user = user,
+                defaults={'mission': single_mission}
+            )
+
             serializer = MissionDetailSerializer(single_mission, many = False)
             full_data = {
                 'mission': serializer.data,
@@ -432,8 +437,8 @@ class CategoryApi(APIView, ApiResponse):
         courses = json.loads(json.dumps(courses))
         return courses
 
-    def get_completed_courses(self, user):
-        all_completed_courses = CompletedCourse.objects.filter(user = user).values_list('course_id', flat = True)
+    def get_completed_courses(self, category, user):
+        all_completed_courses = CompletedCourse.objects.filter(user = user, course__category=category).values_list('course_id', flat = True)
         return list(all_completed_courses)
 
     def apply_ticks_on_courses(self, course, completed_courses):
@@ -465,7 +470,7 @@ class CategoryApi(APIView, ApiResponse):
         serializer = CategoryDetailedSerializer(single_cat, many=False)
         proper_data = json.loads(json.dumps(serializer.data))
         all_courses = self.get_courses(single_cat, user_obj)
-        all_completed_courses = self.get_completed_courses(user_obj)
+        all_completed_courses = self.get_completed_courses(single_cat, user_obj)
         all_unlocked_levels = self.get_unlocked_levels(user_obj)
 
         for course in all_courses:
@@ -474,7 +479,22 @@ class CategoryApi(APIView, ApiResponse):
             for level in all_levels:
                 self.apply_ticks_on_levels(level, all_unlocked_levels)
         proper_data['courses'] = all_courses
-        proper_data['where_you_left'] = self.add_where_you_left_mission(user_obj, single_cat)
+
+        if len(all_courses) > 0:
+            if all_courses == all_completed_courses:
+                proper_data['where_you_left'] = {
+                    'mission_id': None,
+                    'category_name': single_cat.name,
+                    'mission_name': 'All courses completed!'
+                }
+            else:   
+                proper_data['where_you_left'] = self.add_where_you_left_mission(user_obj, single_cat)
+        else:
+            proper_data['where_you_left'] = {
+                'mission_id': None,
+                'category_name': single_cat.name,
+                'mission_name': 'No courses present!'
+            }
         return {'category': proper_data}
 
     def get(self, request, cat_id=None):

@@ -167,8 +167,8 @@ class Mission(models.Model):
 
     def where_you_left_name(self):
         return {
-            'mission_id': self.mission_id,
-            'course_name': self.level.course.category.name,
+            'mission_id': f'mission/{self.mission_id}',
+            'category_name': self.level.course.category.name,
             'mission_name': f'{self.level.course.name} / {self.level.name} / {self.name}'
         }
 
@@ -319,3 +319,8 @@ class API_Key(models.Model):
     class Meta:
         verbose_name = 'API key'
         verbose_name_plural = 'API keys'
+
+class LastVisit(models.Model):
+    user = models.ForeignKey(SystemUser, on_delete = models.CASCADE)
+    mission = models.ForeignKey(Mission, on_delete = models.CASCADE, null = True, blank = True)
+    timestamp = models.DateTimeField(default = timezone.now)

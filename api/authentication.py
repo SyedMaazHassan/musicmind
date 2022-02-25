@@ -23,12 +23,27 @@ class ApiResponse:
         return get_related_courses_mini(user, selected_category)
         
     def add_where_you_left_mission(self, user, category):
-        all_unlocked_missions = list(UnlockedMission.objects.filter(user = user))
-        for i in all_unlocked_missions:
-            focused = all_unlocked_missions.pop()
-            if focused.mission.level.course.category == category:
-                mission_to_return = focused.mission
-                return mission_to_return.where_you_left_name()
+        last_visit = LastVisit.objects.filter(user = user).first()
+        if last_visit:
+            return last_visit.mission.where_you_left_name()
+        first_unlocked_mission = UnlockedMission.objects.filter(user = user).first()
+        if first_unlocked_mission:
+            return first_unlocked_mission.mission.where_you_left_name()
+        return None
+        
+        # unlocked_missions = all_unlocked_missions.filter(is_completed = True)
+        
+        # if unlocked_missions.count() == 0 or not (user.is_trial_taken or user.is_trial_end):
+        #     mission_to_return = all_unlocked_missions.first().mission
+        #     return mission_to_return.where_you_left_name()
+
+        # all_unlocked_missions = list(all_unlocked_missions)
+        # for i in all_unlocked_missions:
+        #     focused = all_unlocked_missions.pop()
+        #     if focused.mission.level.course.category == category:
+        #         mission_to_return = focused.mission
+        #         return mission_to_return.where_you_left_name()
+        
         return None
 
     def add_payment_info(self, user):
