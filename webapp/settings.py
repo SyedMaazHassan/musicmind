@@ -148,16 +148,12 @@ LOGIN_URL = "/login/"
 # Simple Mail Transfer Protocol (SMTP) Configuration:
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'maaztest33@gmail.com'
-EMAIL_HOST_PASSWORD = '*******'
+
 
 
 CRISPY_TEMPLATE_PACK = 'bootstrap'
 
 STRIPE = {
-    'publishableKey': 'pk_test_neFiWZmP73t6MxcbqrATir3y00YX32CRnz',
-    'secretKey': 'sk_test_WCeo5nOzdhn1NkjLAD04cJ3C00mfgaRExc'
+    'publishableKey': 'pk_test_51KMJeuGV41sVprtwPHlGuWaKMZfDbHDNwoPJ5QwafE2iuGvydxstoFbDt8jw3lD8jdNmQhOzx7wUJH3l5g0glFtb00p5vmoprF',
+    'secretKey': 'sk_test_51KMJeuGV41sVprtwH0Wn5xZtojnP942Udvr8Ln5oe495K5DqHmKuMnpkWNl9QFLzOWdhgCGTVTGUzHIrZ7DnQtUn00nVXy21KR'
 }
